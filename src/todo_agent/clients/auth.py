@@ -1,25 +1,19 @@
-# feishu_client.py
-import os
+"""Feishu Open API authentication client."""
+
 import time
 from typing import Any
 
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()
+from todo_agent.config import config
 
-APP_ID = os.getenv("FEISHU_APP_ID")
-APP_SECRET = os.getenv("FEISHU_APP_SECRET")
 TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-REQUEST_TIMEOUT = 10
-
 _token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0}
 
 
 def get_access_token(force_refresh: bool = False) -> str:
-    """Get a Feishu tenant access token."""
-    if not APP_ID or not APP_SECRET:
-        raise ValueError("缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET 配置")
+    """Get a Feishu tenant access token with in-process caching."""
+    app_id, app_secret = config.require_app_credentials()
 
     now = time.time()
     cached_token = _token_cache.get("token")
@@ -28,8 +22,8 @@ def get_access_token(force_refresh: bool = False) -> str:
 
     resp = requests.post(
         TOKEN_URL,
-        json={"app_id": APP_ID, "app_secret": APP_SECRET},
-        timeout=REQUEST_TIMEOUT,
+        json={"app_id": app_id, "app_secret": app_secret},
+        timeout=config.request_timeout,
     )
     resp.raise_for_status()
 
@@ -44,8 +38,3 @@ def get_access_token(force_refresh: bool = False) -> str:
 
     print(f"✅ token 获取成功，有效期 {expire_seconds}s")
     return token
-
-
-if __name__ == "__main__":
-    token = get_access_token()
-    print(f"token: {token[:20]}...")

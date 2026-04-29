@@ -1,22 +1,8 @@
-# bitable_writer.py
+"""Todo-to-Bitable field mapping and validation rules."""
+
 import json
-import os
 from datetime import datetime
-
-import requests
-from dotenv import load_dotenv
-
-from feishu_client import get_access_token
-
-import json
-# 打开 JSON 文件 (指定 utf-8 编码)
-with open('mock_data/todo_result_feishu_doc.json', 'r', encoding='utf-8') as file:
-    data = json.load(file)
-
-load_dotenv()
-
-APP_TOKEN = os.getenv("FEISHU_BITABLE_APP_TOKEN")
-TABLE_ID = os.getenv("FEISHU_TABLE_ID")
+from typing import Any
 
 FIELD_NAMES = {
     "title": "待办标题",
@@ -35,7 +21,8 @@ VALID_PRIORITIES = {"P0", "P1", "P2"}
 VALID_STATUSES = {"待处理", "进行中", "已完成", "阻塞"}
 
 
-def build_owner_value(todo: dict):
+def build_owner_value(todo: dict[str, Any]) -> list[dict[str, str]] | None:
+    """Build the Bitable person-field value from owner open IDs."""
     owner_open_ids = todo.get("owner_open_ids")
     if owner_open_ids:
         return [{"id": open_id} for open_id in owner_open_ids if open_id]
@@ -47,8 +34,8 @@ def build_owner_value(todo: dict):
     return None
 
 
-def normalize_need_confirm(value) -> list[str]:
-    """将上游传入的 need_confirm 统一转换为字段名列表"""
+def normalize_need_confirm(value: Any) -> list[str]:
+    """Normalize upstream ``need_confirm`` into a list of field names."""
     if not value:
         return []
     if isinstance(value, list):
@@ -65,13 +52,13 @@ def normalize_need_confirm(value) -> list[str]:
 
 
 def append_need_confirm(need_confirm: list[str], field_name: str) -> None:
-    """追加需要确认的字段名，并保持去重"""
+    """Append a field name to need-confirm list while preserving uniqueness."""
     if field_name not in need_confirm:
         need_confirm.append(field_name)
 
 
-def build_need_confirm(todo: dict) -> list[str]:
-    """根据上游标记和本地基础校验生成需要确认的字段名列表"""
+def build_need_confirm(todo: dict[str, Any]) -> list[str]:
+    """Merge upstream need-confirm values with local validation results."""
     need_confirm = normalize_need_confirm(todo.get("need_confirm"))
 
     if not build_owner_value(todo):
@@ -98,13 +85,13 @@ def build_need_confirm(todo: dict) -> list[str]:
 
 
 def format_need_confirm_value(need_confirm: list[str]) -> str:
-    """按 JSON 数组字符串写入多维表格，便于人工查看和后续程序解析"""
+    """Format need-confirm field as a JSON-array string for Bitable text cells."""
     return json.dumps(need_confirm, ensure_ascii=False)
 
 
-def todo_to_fields(todo: dict) -> dict:
-    """将 Agent 输出的 todo dict 转换为 Bitable 字段格式"""
-    fields = {
+def todo_to_fields(todo: dict[str, Any]) -> dict[str, Any]:
+    """Convert one normalized todo dict into Feishu Bitable field payload."""
+    fields: dict[str, Any] = {
         FIELD_NAMES["title"]: todo.get("title", "（无标题）"),
         FIELD_NAMES["description"]: todo.get("description", ""),
         FIELD_NAMES["status"]: todo.get("status", "待处理"),
@@ -135,33 +122,3 @@ def todo_to_fields(todo: dict) -> dict:
         fields[FIELD_NAMES["need_confirm"]] = format_need_confirm_value(need_confirm)
 
     return {k: v for k, v in fields.items() if v not in (None, "", [])}
-
-
-def batch_write(todos: list[dict]) -> dict:
-    """批量写入，返回写入统计"""
-    if not APP_TOKEN or not TABLE_ID:
-        raise ValueError("缺少 FEISHU_BITABLE_APP_TOKEN 或 FEISHU_TABLE_ID 配置")
-
-    token = get_access_token()
-    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{APP_TOKEN}/tables/{TABLE_ID}/records/batch_create"
-
-    records = [{"fields": todo_to_fields(todo)} for todo in todos]
-    resp = requests.post(
-        url,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={"records": records},
-    )
-    result = resp.json()
-
-    if result.get("code") == 0:
-        created = result.get("data", {}).get("records", [])
-        print(f"✅ 批量写入成功：{len(created)} 条")
-        return {"success": len(created), "failed": 0, "record_ids": [r["record_id"] for r in created]}
-
-    print(f"❌ 批量写入失败: {json.dumps(result, ensure_ascii=False)}")
-    return {"success": 0, "failed": len(todos), "error": result}
-
-
-if __name__ == "__main__":
-    mock_todos = data['items']
-    batch_write(mock_todos)

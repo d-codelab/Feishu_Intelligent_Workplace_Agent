@@ -1,35 +1,19 @@
-[
-    {
-        "title": "验证用户登录接口响应时间",
-        "description": "对新版用户登录API进行压力测试，确保平均响应时间低于200ms",
-        "owner_open_id": "ou_e128bfd18f90e64471a0b5d2bfb56ff8",
-        "deadline": "2026-04-28",
-        "status": "待开始",
-        "priority": "P1",
-        "source_type": "开发计划",
-        "source_link": "https://open.feishu.cn/document/home/index",
-        "source_link_text": "飞书开放平台",
-        "evidence": "性能测试报告"
-    },
-    {
-        "title": "排查数据库连接池溢出问题",
-        "description": "分析生产环境日志，定位并修复高并发下数据库连接池耗尽的Bug",
-        "owner_open_ids": ["ou_e128bfd18f90e64471a0b5d2bfb56ff8"],
-        "deadline": "2026-04-26",
-        "status": "已完成",
+{
+    "items": [
+        {
+        "title": "跑通演示闭环",
+        "description": "两天内跑通模拟办公数据抽取、结构化输出、API写入多维表格、机器人发送结果的最小可演示闭环",
+        "owner": "待确认",
+        "deadline": "两天内",
+        "status": "未开始",
         "priority": "P0",
-        "source_type": "故障报告",
-        "source_link": "https://open.feishu.cn/document/home/index",
-        "evidence": "修复代码的Git提交记录"
-    },
-    {
-        "title": "更新项目技术文档",
-        "description": "根据最新的API变更，同步更新对外的开发者文档",
-        "deadline": "2026-04-30",
-        "status": "进行中",
-        "priority": "P2",
-        "source_type": "团队周会",
-        "source_link": "https://open.feishu.cn/document/home/index",
-        "evidence": "文档在线链接"
-    }
-]
+        "source_type": "飞书文档",
+        "evidence": "两天内跑通一个最小可演示闭环：模拟办公数据 → OpenClaw/CLI 抽取事项 → 输出结构化 JSON → API 写入飞书多维表格 → 机器人发送整理结果",
+        "need_confirm": [
+            "负责人"
+        ],
+        "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc",
+        "risk_or_blocker": ""
+        }
+    ]
+}

@@ -1,23 +1,16 @@
+"""Script for listing Feishu chats visible to a user token."""
+
 import json
-import os
 from typing import Any
 
 import lark_oapi as lark
-from dotenv import load_dotenv
 from lark_oapi.api.im.v1 import ListChatRequest, ListChatResponse
 
-load_dotenv()
+from todo_agent.config import config
 
 
 def decode_raw_content(raw_content: bytes | str | None) -> Any:
-    """Decode raw SDK error content for diagnostic logs.
-
-    Args:
-        raw_content: Raw error body returned by the Feishu SDK.
-
-    Returns:
-        Parsed JSON when possible, otherwise a decoded string or None.
-    """
+    """Decode raw SDK error content for diagnostic logs."""
     if raw_content is None:
         return None
 
@@ -28,16 +21,9 @@ def decode_raw_content(raw_content: bytes | str | None) -> Any:
         return text
 
 
-def main() -> None:
-    """List chats and print the SDK response data.
-
-    Raises:
-        ValueError: If ``FEISHU_USER_ACCESS_TOKEN`` is not configured.
-    """
-    user_access_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
-    if not user_access_token:
-        raise ValueError("缺少 FEISHU_USER_ACCESS_TOKEN 配置")
-
+def get_chat_id() -> None:
+    """List chats and print the SDK response data."""
+    user_access_token = config.require_user_access_token()
     client = lark.Client.builder().enable_set_token(True).log_level(lark.LogLevel.DEBUG).build()
 
     request: ListChatRequest = ListChatRequest.builder().sort_type("ByCreateTimeAsc").page_size(20).build()
@@ -57,4 +43,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    get_chat_id()
