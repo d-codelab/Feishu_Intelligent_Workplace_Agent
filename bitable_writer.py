@@ -10,7 +10,7 @@ from feishu_client import get_access_token
 
 import json
 # 打开 JSON 文件 (指定 utf-8 编码)
-with open('mock_data/data.json', 'r', encoding='utf-8') as file:
+with open('mock_data/todo_result_feishu_doc.json', 'r', encoding='utf-8') as file:
     data = json.load(file)
 
 load_dotenv()
@@ -28,7 +28,11 @@ FIELD_NAMES = {
     "source_type": "来源渠道",
     "source_link": "来源链接",
     "evidence": "原文证据/背景",
+    "need_confirm": "待确认字段",
 }
+
+VALID_PRIORITIES = {"P0", "P1", "P2"}
+VALID_STATUSES = {"待处理", "进行中", "已完成", "阻塞"}
 
 
 def build_owner_value(todo: dict):
@@ -41,6 +45,61 @@ def build_owner_value(todo: dict):
         return [{"id": owner_open_id}]
 
     return None
+
+
+def normalize_need_confirm(value) -> list[str]:
+    """将上游传入的 need_confirm 统一转换为字段名列表"""
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return [value]
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed if item]
+        return [value]
+    return [str(value)]
+
+
+def append_need_confirm(need_confirm: list[str], field_name: str) -> None:
+    """追加需要确认的字段名，并保持去重"""
+    if field_name not in need_confirm:
+        need_confirm.append(field_name)
+
+
+def build_need_confirm(todo: dict) -> list[str]:
+    """根据上游标记和本地基础校验生成需要确认的字段名列表"""
+    need_confirm = normalize_need_confirm(todo.get("need_confirm"))
+
+    if not build_owner_value(todo):
+        append_need_confirm(need_confirm, FIELD_NAMES["owner"])
+
+    deadline = todo.get("deadline")
+    if not deadline:
+        append_need_confirm(need_confirm, FIELD_NAMES["deadline"])
+    else:
+        try:
+            datetime.strptime(deadline, "%Y-%m-%d")
+        except ValueError:
+            append_need_confirm(need_confirm, FIELD_NAMES["deadline"])
+
+    priority = todo.get("priority")
+    if priority and priority not in VALID_PRIORITIES:
+        append_need_confirm(need_confirm, FIELD_NAMES["priority"])
+
+    status = todo.get("status")
+    if status and status not in VALID_STATUSES:
+        append_need_confirm(need_confirm, FIELD_NAMES["status"])
+
+    return need_confirm
+
+
+def format_need_confirm_value(need_confirm: list[str]) -> str:
+    """按 JSON 数组字符串写入多维表格，便于人工查看和后续程序解析"""
+    return json.dumps(need_confirm, ensure_ascii=False)
 
 
 def todo_to_fields(todo: dict) -> dict:
@@ -71,6 +130,10 @@ def todo_to_fields(todo: dict) -> dict:
         except ValueError:
             pass
 
+    need_confirm = build_need_confirm(todo)
+    if need_confirm:
+        fields[FIELD_NAMES["need_confirm"]] = format_need_confirm_value(need_confirm)
+
     return {k: v for k, v in fields.items() if v not in (None, "", [])}
 
 
@@ -100,5 +163,5 @@ def batch_write(todos: list[dict]) -> dict:
 
 
 if __name__ == "__main__":
-    mock_todos = data
+    mock_todos = data['items']
     batch_write(mock_todos)
