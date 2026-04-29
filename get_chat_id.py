@@ -1,36 +1,58 @@
 import json
+import os
+from typing import Any
 
 import lark_oapi as lark
-from lark_oapi.api.im.v1 import *
+from dotenv import load_dotenv
+from lark_oapi.api.im.v1 import ListChatRequest, ListChatResponse
+
+load_dotenv()
 
 
-# SDK 使用说明: https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/server-side-sdk/python--sdk/preparations-before-development
-# 以下示例代码默认根据文档示例值填充，如果存在代码问题，请在 API 调试台填上相关必要参数后再复制代码使用
-def main():
-    # 创建client
-    # 使用 user_access_token 需开启 token 配置, 并在 request_option 中配置 token
-    client = lark.Client.builder() \
-        .enable_set_token(True) \
-        .log_level(lark.LogLevel.DEBUG) \
-        .build()
+def decode_raw_content(raw_content: bytes | str | None) -> Any:
+    """Decode raw SDK error content for diagnostic logs.
 
-    # 构造请求对象
-    request: ListChatRequest = ListChatRequest.builder() \
-        .sort_type("ByCreateTimeAsc") \
-        .page_size(20) \
-        .build()
+    Args:
+        raw_content: Raw error body returned by the Feishu SDK.
 
-    # 发起请求
-    option = lark.RequestOption.builder().user_access_token("u-eepHx.KHNd0GYvoH1j.Zcwg5gui5kloVN8waERM80ybe").build()
+    Returns:
+        Parsed JSON when possible, otherwise a decoded string or None.
+    """
+    if raw_content is None:
+        return None
+
+    text = raw_content.decode("utf-8") if isinstance(raw_content, bytes) else raw_content
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def main() -> None:
+    """List chats and print the SDK response data.
+
+    Raises:
+        ValueError: If ``FEISHU_USER_ACCESS_TOKEN`` is not configured.
+    """
+    user_access_token = os.getenv("FEISHU_USER_ACCESS_TOKEN")
+    if not user_access_token:
+        raise ValueError("缺少 FEISHU_USER_ACCESS_TOKEN 配置")
+
+    client = lark.Client.builder().enable_set_token(True).log_level(lark.LogLevel.DEBUG).build()
+
+    request: ListChatRequest = ListChatRequest.builder().sort_type("ByCreateTimeAsc").page_size(20).build()
+    option = lark.RequestOption.builder().user_access_token(user_access_token).build()
     response: ListChatResponse = client.im.v1.chat.list(request, option)
 
-    # 处理失败返回
     if not response.success():
+        raw = decode_raw_content(response.raw.content if response.raw else None)
         lark.logger.error(
-            f"client.im.v1.chat.list failed, code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}, resp: \n{json.dumps(json.loads(response.raw.content), indent=4, ensure_ascii=False)}")
+            "client.im.v1.chat.list failed, "
+            f"code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}, "
+            f"resp: {json.dumps(raw, indent=4, ensure_ascii=False) if isinstance(raw, dict) else raw}"
+        )
         return
 
-    # 处理业务结果
     lark.logger.info(lark.JSON.marshal(response.data, indent=4))
 
 
