@@ -27,6 +27,25 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
     no_owner = sum(1 for t in todos if not t.get("owner_open_id") and not t.get("owner_open_ids"))
     blocked = sum(1 for t in todos if t.get("status") == "阻塞" or t.get("risk_or_blocker"))
 
+    at_list = ""
+    for t in todos:
+        if t.get("owner_open_id"):
+            print(f"Processing owner for todo '{t.get('title', 'N/A')}': owner_open_id={t['owner_open_id']}")
+            at_list += f'<at user_id="{t["owner_open_id"]}"></at> '
+        if t.get("owner_open_ids"):
+            for oid in t["owner_open_ids"]:
+                if oid:
+                    at_list += f'<at user_id="{oid}"></at> '
+
+    content_text = (
+        f"今日自动整理出 **{total}** 个团队事项\n"
+        f"- 缺少负责人：**{no_owner}** 个\n"
+        f"- 存在阻塞风险：**{blocked}** 个\n\n"
+        f"请查看{build_bitable_link_text()}。\n"
+    )
+    if at_list:
+        content_text += f"\n相关负责人：{at_list}"
+
     return {
         "config": {"wide_screen_mode": True},
         "header": {
@@ -38,12 +57,7 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": (
-                        f"今日自动整理出 **{total}** 个团队事项\n"
-                        f"- 缺少负责人：**{no_owner}** 个\n"
-                        f"- 存在阻塞风险：**{blocked}** 个\n\n"
-                        f"请查看{build_bitable_link_text()}。"
-                    ),
+                    "content": content_text,
                 },
             }
         ],
@@ -51,9 +65,14 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def send_summary(todos: list[dict[str, Any]], mobile: str | None = None) -> bool:
-    """Send todo summary card to a recipient looked up by mobile number."""
-    open_id = get_user_open_id_by_mobile(mobile or config.summary_mobile)
-    if not open_id:
+    """Send todo summary card to the project group chat and @ all owners."""
+    if not config.feishu_chat_id:
+        print("❌ 未配置群聊 ID (FEISHU_CHAT_ID)")
         return False
 
-    return send_interactive_card(build_summary_card(todos), receive_id=open_id, receive_id_type="open_id")
+    card = build_summary_card(todos)
+    return send_interactive_card(
+        card,
+        receive_id=config.feishu_chat_id,
+        receive_id_type="chat_id"
+    )

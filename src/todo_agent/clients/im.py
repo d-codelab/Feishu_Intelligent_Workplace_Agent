@@ -48,7 +48,7 @@ def send_interactive_card(card: dict[str, Any], receive_id: str, receive_id_type
     resp = requests.post(
         MESSAGE_URL,
         params={"receive_id_type": receive_id_type},
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
         json={
             "receive_id": receive_id,
             "msg_type": "interactive",
@@ -56,7 +56,16 @@ def send_interactive_card(card: dict[str, Any], receive_id: str, receive_id_type
         },
         timeout=config.request_timeout,
     )
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        print(f"❌ API Request Failed [Status {resp.status_code}]: {resp.text}")
+        return False
+
+    try:
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ HTTP Error: {e}")
+        return False
+
     result = resp.json()
     if result.get("code") == 0:
         print("✅ 卡片发送成功")

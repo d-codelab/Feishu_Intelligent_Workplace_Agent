@@ -1,6 +1,7 @@
 """Todo-to-Bitable field mapping and validation rules."""
 
 import json
+import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -10,15 +11,16 @@ FIELD_NAMES = {
     "owner": "负责人",
     "deadline": "截止日期",
     "priority": "优先级",
-    "status": "状态",
-    "source_type": "来源渠道",
+    "status": "当前状态",
+    "source_type": "来源类型",
     "source_link": "来源链接",
-    "evidence": "原文证据/背景",
-    "need_confirm": "待确认字段",
+    "evidence": "原文依据",
+    "need_confirm": "待确认项",
+    "system_id": "系统ID",
 }
 
-VALID_PRIORITIES = {"P0", "P1", "P2"}
-VALID_STATUSES = {"待处理", "进行中", "已完成", "阻塞"}
+VALID_PRIORITIES = {"P0", "P1", "P2", "P3"}
+VALID_STATUSES = {"待开始", "进行中", "已完成", "有阻塞", "已延期", "待确认"}
 
 
 def build_owner_value(todo: dict[str, Any]) -> list[dict[str, str]] | None:
@@ -84,11 +86,6 @@ def build_need_confirm(todo: dict[str, Any]) -> list[str]:
     return need_confirm
 
 
-def format_need_confirm_value(need_confirm: list[str]) -> str:
-    """Format need-confirm field as a JSON-array string for Bitable text cells."""
-    return json.dumps(need_confirm, ensure_ascii=False)
-
-
 def todo_to_fields(todo: dict[str, Any]) -> dict[str, Any]:
     """Convert one normalized todo dict into Feishu Bitable field payload."""
     fields: dict[str, Any] = {
@@ -119,6 +116,11 @@ def todo_to_fields(todo: dict[str, Any]) -> dict[str, Any]:
 
     need_confirm = build_need_confirm(todo)
     if need_confirm:
-        fields[FIELD_NAMES["need_confirm"]] = format_need_confirm_value(need_confirm)
+        fields[FIELD_NAMES["need_confirm"]] = need_confirm
+
+    source_type = str(todo.get("source_type", ""))
+    title = str(todo.get("title", ""))
+    sys_id_str = f"{source_type}_{title}".encode("utf-8")
+    fields[FIELD_NAMES["system_id"]] = hashlib.md5(sys_id_str).hexdigest()
 
     return {k: v for k, v in fields.items() if v not in (None, "", [])}

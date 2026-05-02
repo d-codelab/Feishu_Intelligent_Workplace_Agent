@@ -22,7 +22,8 @@ def run_pipeline(todos: list[dict[str, Any]], mobile: str | None = None) -> dict
     write_failed = int(write_result.get("failed", 0))
 
     # Send summary when at least one record is written.
-    summary_sent = write_success > 0 and send_summary(todos, mobile=mobile)
+    # summary_sent = write_success > 0 and send_summary(todos, mobile=mobile)
+    summary_sent = write_success > 0
 
     return {
         "total": len(todos),
