@@ -32,6 +32,23 @@ class FeishuConfig:
     summary_mobile: str = os.getenv("FEISHU_TEST_MOBILE", "13349952475")
     request_timeout: int = int(os.getenv("FEISHU_REQUEST_TIMEOUT", "10"))
 
+    target_docs: list[dict[str, str]] = None
+
+    def __post_init__(self):
+        # Demo phase target docs for scheduled tasks
+        object.__setattr__(self, 'target_docs', [
+            {
+                "type": "docx",
+                "title": "618大促主会场｜项目方案 v1",
+                "token": "Rn0qdlPEBoln6uxukGvcHw6Bntd"
+            },
+            {
+                "type": "docx",
+                "title": "智能纪要：讨论 2026年4月26日",
+                "token": "SoR6dLwIeowFSWxRHrBcSh2Un8c"
+            }
+        ])
+
     def require_app_credentials(self) -> tuple[str, str]:
         """Return app credentials or raise when missing."""
         if not self.app_id or not self.app_secret:

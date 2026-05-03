@@ -2,16 +2,16 @@
 
 from typing import Any
 
-from todo_agent.clients.bitable import batch_create_records, print_bitable_error, search_records
+from todo_agent.clients.bitable import batch_create_records, batch_update_records, print_bitable_error, search_records
 from todo_agent.services.todo_mapper import FIELD_NAMES, todo_to_fields
 
 
-def check_existing_system_ids(system_ids: list[str]) -> set[str]:
-    """Search for existing records by system_id and return a set of found IDs."""
+def check_existing_system_ids(system_ids: list[str]) -> dict[str, str]:
+    """Search for existing records by system_id and return a mapping of system_id -> record_id."""
     if not system_ids:
-        return set()
+        return {}
 
-    found_ids = set()
+    found_ids = {}
     system_id_field = FIELD_NAMES["system_id"]
 
     # We can batch conditions using OR if there are many,
@@ -35,7 +35,8 @@ def check_existing_system_ids(system_ids: list[str]) -> set[str]:
                 items = result.get("data", {}).get("items", [])
                 for item in items:
                     sid = item.get("fields", {}).get(system_id_field)
-                    if sid:
+                    record_id = item.get("record_id")
+                    if sid and record_id:
                         # Extract the string if Bitable returned a list or complex object
                         if isinstance(sid, list):
                             # The first element could be a dict or a string depending on the field config
@@ -48,7 +49,7 @@ def check_existing_system_ids(system_ids: list[str]) -> set[str]:
                             else:
                                 sid = None
                         if isinstance(sid, str):
-                            found_ids.add(sid)
+                            found_ids[sid] = record_id
         except Exception as e:
             print(f"⚠️ 查询已存在的提醒失败：{e}")
 
@@ -56,9 +57,9 @@ def check_existing_system_ids(system_ids: list[str]) -> set[str]:
 
 
 def batch_write(todos: list[dict[str, Any]]) -> dict[str, Any]:
-    """Batch write todos into the configured Feishu Bitable table."""
+    """Batch write (upsert) todos into the configured Feishu Bitable table."""
     if not todos:
-        return {"success": 0, "failed": 0, "record_ids": []}
+        return {"success": 0, "failed": 0, "record_ids": [], "updated": 0}
 
     all_records = [{"fields": todo_to_fields(todo)} for todo in todos]
 
@@ -70,28 +71,56 @@ def batch_write(todos: list[dict[str, Any]]) -> dict[str, Any]:
     ]
     existing_sids = check_existing_system_ids(system_ids)
 
-    records = []
+    records_to_create = []
+    records_to_update = []
+
     for r in all_records:
         sid = r["fields"].get(FIELD_NAMES["system_id"])
         if sid and sid in existing_sids:
-            print(f"ℹ️ 跳过重复的待办，系统ID: {sid}")
-            continue
-        records.append(r)
+            records_to_update.append({
+                "record_id": existing_sids[sid],
+                "fields": r["fields"]
+            })
+            print(f"ℹ️ 准备更新已存在的待办，系统ID: {sid}")
+        else:
+            records_to_create.append(r)
 
-    if not records:
-        print("ℹ️ 没有新的待办需要写入")
-        return {"success": 0, "failed": 0, "record_ids": []}
+    if not records_to_create and not records_to_update:
+        print("ℹ️ 没有新的待办需要写入或更新")
+        return {"success": 0, "failed": 0, "record_ids": [], "updated": 0}
 
-    result = batch_create_records(records)
+    created_count = 0
+    updated_count = 0
+    failed_count = 0
+    record_ids = []
 
-    if result.get("code") == 0:
-        created = result.get("data", {}).get("records", [])
-        print(f"✅ 批量写入成功：{len(created)} 条")
-        return {
-            "success": len(created),
-            "failed": 0,
-            "record_ids": [r["record_id"] for r in created],
-        }
+    # Create new records
+    if records_to_create:
+        result_c = batch_create_records(records_to_create)
+        if result_c.get("code") == 0:
+            created = result_c.get("data", {}).get("records", [])
+            created_count = len(created)
+            record_ids.extend([r["record_id"] for r in created])
+            print(f"✅ 批量新建成功：{created_count} 条")
+        else:
+            failed_count += len(records_to_create)
+            print_bitable_error("❌ 批量新建失败", result_c)
 
-    print_bitable_error("❌ 批量写入失败", result)
-    return {"success": 0, "failed": len(todos), "error": result}
+    # Update existing records
+    if records_to_update:
+        result_u = batch_update_records(records_to_update)
+        if result_u.get("code") == 0:
+            updated = result_u.get("data", {}).get("records", [])
+            updated_count = len(updated)
+            record_ids.extend([r["record_id"] for r in updated])
+            print(f"✅ 批量更新成功：{updated_count} 条")
+        else:
+            failed_count += len(records_to_update)
+            print_bitable_error("❌ 批量更新失败", result_u)
+
+    return {
+        "success": created_count,
+        "updated": updated_count,
+        "failed": failed_count,
+        "record_ids": record_ids,
+    }

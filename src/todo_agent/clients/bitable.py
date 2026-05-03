@@ -25,6 +25,22 @@ def batch_create_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     return resp.json()
 
 
+def batch_update_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Batch update records in the configured Feishu Bitable table."""
+    app_token, table_id = config.require_bitable_config()
+    token = get_access_token()
+    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records/batch_update"
+
+    resp = requests.post(
+        url,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"records": records},
+        timeout=config.request_timeout,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def search_records(filter_info: dict[str, Any]) -> dict[str, Any]:
     """Search records using the Bitable search API."""
     app_token, table_id = config.require_bitable_config()

@@ -36,3 +36,6 @@ Thumbs.db
 # Mock data
 mock_data/
 src/test/
+
+# record doc
+doc/

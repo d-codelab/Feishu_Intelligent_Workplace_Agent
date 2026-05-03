@@ -31,11 +31,11 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
     for t in todos:
         if t.get("owner_open_id"):
             print(f"Processing owner for todo '{t.get('title', 'N/A')}': owner_open_id={t['owner_open_id']}")
-            at_list += f'<at user_id="{t["owner_open_id"]}"></at> '
+            at_list += f'<at id="{t["owner_open_id"]}"></at> '
         if t.get("owner_open_ids"):
             for oid in t["owner_open_ids"]:
                 if oid:
-                    at_list += f'<at user_id="{oid}"></at> '
+                    at_list += f'<at id="{oid}"></at> '
 
     content_text = (
         f"今日自动整理出 **{total}** 个团队事项\n"
@@ -50,7 +50,7 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
         "config": {"wide_screen_mode": True},
         "header": {
             "template": "blue",
-            "title": {"tag": "plain_text", "content": "团队重点事项汇总"},
+            "title": {"tag": "plain_text", "content": "新增事项总结"},
         },
         "elements": [
             {
