@@ -15,6 +15,7 @@ from lark_oapi.api.im.v1 import (
     P2ImMessageReceiveV1,
 )
 
+from todo_agent.clients.auth import get_access_token
 from todo_agent.config import config
 from todo_agent.services.pipeline import run_pipeline
 
@@ -32,8 +33,20 @@ def process_doc_todos(doc_token: str):
     # 获取抽取结果后，这里负责写入和同步链路
     logger.info("[*] (Mock) 根据抽取结果执行写入同步")
     # For now, optionally just log or run a mocked version:
-    # todos = mock_extract(doc_token)
-    # result = run_pipeline(todos)
+    todos = [
+        {
+          "title": "测试演示闭环",
+          "description": "两天内测试最小可演示闭环，完成技术可行性验证，确认核心链路可测试",
+          "owner_open_id": "ou_e128bfd18f90e64471a0b5d2bfb56ff8",
+          "deadline": "1777647368627",
+          "status": "待开始",
+          "priority": "",
+          "source_type": "飞书任务",
+          "evidence": "两天内测试一个最小可演示闭环：模拟办公数据 → OpenClaw/CLI 抽取事项 → 输出结构化 JSON → API 写入飞书多维表格 → 机器人发送整理结果",
+          "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
+        }
+      ]
+    result = run_pipeline(todos)
 
 
 def handle_scheduled_scan():
@@ -42,7 +55,10 @@ def handle_scheduled_scan():
     docs = getattr(config, 'target_docs', [])
     for doc in docs:
         logger.info(f"-> 扫描文档: {doc['title']} ({doc['token']})")
-        process_doc_todos(doc['token'])
+        try:
+            process_doc_todos(doc['token'])
+        except Exception as e:
+            logger.error(f"处理文档 {doc['title']} 失败: {e}")
     logger.info(f"==== 定时巡检任务完成 ====")
 
 
@@ -57,6 +73,15 @@ def handle_im_message(data: P2ImMessageReceiveV1) -> None:
         # doc_token = parse_token_from_url(content)
         # process_doc_todos(doc_token)
     return None
+
+
+def refresh_access_token_job() -> None:
+    """Refresh tenant access token on a fixed schedule."""
+    try:
+        get_access_token(force_refresh=True)
+        logger.info("✅ 已定时刷新 tenant access token")
+    except Exception as e:
+        logger.error(f"❌ 定时刷新 token 失败: {e}")
 
 
 def main():
@@ -77,8 +102,10 @@ def main():
 
     # 2. 定时任务配置
     scheduler = BackgroundScheduler()
-    # 设定每天早上 9:00 扫描。Demo阶段可改为每分钟等用于测试 (e.g., trigger='cron', hour=9, minute=0)
-    scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
+    # 设定每天早上 9:00 扫描一次目标文档列表，触发抽取与同步流程
+    # scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
+    scheduler.add_job(handle_scheduled_scan, trigger='interval', seconds=60)  # For demo, run every 60s
+    scheduler.add_job(refresh_access_token_job, trigger='interval', minutes=60)
     scheduler.start()
     logger.info("已启动定时任务调度器 (每天9:00)")
 
