@@ -91,7 +91,7 @@ def todo_to_fields(todo: dict[str, Any]) -> dict[str, Any]:
     fields: dict[str, Any] = {
         FIELD_NAMES["title"]: todo.get("title", "（无标题）"),
         FIELD_NAMES["description"]: todo.get("description", ""),
-        FIELD_NAMES["status"]: todo.get("status", "待处理"),
+        FIELD_NAMES["status"]: todo.get("status", "待确认"),
         FIELD_NAMES["priority"]: todo.get("priority", "P2"),
         FIELD_NAMES["source_type"]: todo.get("source_type", ""),
         FIELD_NAMES["evidence"]: todo.get("evidence", ""),
