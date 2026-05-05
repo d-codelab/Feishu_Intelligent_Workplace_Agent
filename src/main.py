@@ -40,7 +40,7 @@ def process_doc_todos(doc_token: str):
         {
           "title": "测试演示闭环",
           "description": "两天内测试最小可演示闭环，完成技术可行性验证，确认核心链路可测试",
-          "owner_open_id": "ou_e128bfd18f90e64471a0b5d2bfb56ff8",
+          "owner_open_id": "ou_5861fdd8ba230b2a2ae9254b4e52df2a",
           "deadline": "1777647368627",
           "status": "待开始",
           "priority": "",
@@ -49,7 +49,7 @@ def process_doc_todos(doc_token: str):
           "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
         }
       ]
-    # run_pipeline(todos)
+    run_pipeline(todos)
 
 def process_chat_todos(chat_id: str):
     """Placeholder: Call the LLM extraction logic for chats and trigger pipeline."""
@@ -145,9 +145,12 @@ def main():
     # 设定每天早上 9:00 扫描一次共享文件夹列表，触发抽取与同步流程
     # scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
     scheduler.add_job(handle_scheduled_scan, trigger='interval', seconds=60)  # For demo, run every 60s
+
     # 设定每天晚上 18:00 扫描一次群聊，触发抽取与同步流程
     # scheduler.add_job(handle_chat_scan, trigger='cron', hour=18, minute=0)
-    scheduler.add_job(handle_chat_scan, trigger='interval', seconds=30)  # For demo, run every 30s
+    # scheduler.add_job(handle_chat_scan, trigger='interval', seconds=30)  # For demo, run every 30s
+
+    # 定时刷新 token，确保长连接稳定
     scheduler.add_job(refresh_access_token_job, trigger='interval', minutes=60)
     scheduler.start()
     logger.info("已启动定时任务调度器 (每天9:00)")
