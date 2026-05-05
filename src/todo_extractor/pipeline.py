@@ -4,6 +4,7 @@ from typing import Any
 
 from todo_extractor.extractors.base import BaseExtractor
 from todo_extractor.llm.client import validate_todos
+from todo_extractor.utils.deduplicator import deduplicate_todos
 
 
 def extract_pipeline(extractor: BaseExtractor, **kwargs) -> dict[str, Any]:
@@ -26,8 +27,16 @@ def extract_pipeline(extractor: BaseExtractor, **kwargs) -> dict[str, Any]:
     try:
         # Step 1: Extract todos
         todos = extractor.extract(**kwargs)
+        original_count = len(todos)
 
-        # Step 2: Validate extracted todos
+        # Step 2: Deduplicate todos
+        todos = deduplicate_todos(todos)
+        dedup_count = original_count - len(todos)
+
+        if dedup_count > 0:
+            print(f"🔄 去重：移除了 {dedup_count} 条重复事项")
+
+        # Step 3: Validate extracted todos
         validation_issues = validate_todos(todos)
 
         if validation_issues:
@@ -39,6 +48,8 @@ def extract_pipeline(extractor: BaseExtractor, **kwargs) -> dict[str, Any]:
             "success": True,
             "todos": todos,
             "count": len(todos),
+            "original_count": original_count,
+            "dedup_count": dedup_count,
             "source_type": extractor.source_type,
             "validation_issues": validation_issues,
         }

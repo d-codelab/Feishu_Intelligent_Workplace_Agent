@@ -480,7 +480,7 @@ def get_chat_history(chat_id: str, hours: int = 24) -> list[dict]:
         "container_id_type": "chat",
         "container_id": chat_id,
         "page_size": 50,
-        "sort_type": "ByCreateTimeDesc",  # Latest first
+        # "sort_type": "ByCreateTimeDesc",  # Latest first
     }
 
     headers = {"Authorization": f"Bearer {token}"}
