@@ -6,16 +6,18 @@ Support multiple dimension triggers:
 """
 
 import logging
-import os
+import re
 import signal
 import sys
-from apscheduler.schedulers.background import BackgroundScheduler
+
 import lark_oapi as lark
+from apscheduler.schedulers.background import BackgroundScheduler
 from lark_oapi.api.im.v1 import (
     P2ImMessageReceiveV1,
 )
 
 from todo_agent.clients.auth import get_access_token
+from todo_agent.clients.drive import list_files_in_folder
 from todo_agent.config import config
 from todo_agent.services.pipeline import run_pipeline
 
@@ -46,19 +48,25 @@ def process_doc_todos(doc_token: str):
           "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
         }
       ]
-    result = run_pipeline(todos)
+    run_pipeline(todos)
 
 
 def handle_scheduled_scan():
     """Triggered by APScheduler every morning at 9:00"""
     logger.info(f"==== 开始执行定时巡检任务 ====")
-    docs = getattr(config, 'target_docs', [])
-    for doc in docs:
-        logger.info(f"-> 扫描文档: {doc['title']} ({doc['token']})")
-        try:
-            process_doc_todos(doc['token'])
-        except Exception as e:
-            logger.error(f"处理文档 {doc['title']} 失败: {e}")
+    folder_token = "IHTzf0VO4lILOYd75z3cV09AnKe"
+    try:
+        files = list_files_in_folder(folder_token)
+        for f in files:
+            file_token = f.get("token")
+            file_name = f.get("name")
+            logger.info(f"-> 扫描文档: {file_name} ({file_token})")
+            try:
+                process_doc_todos(file_token)
+            except Exception as e:
+                logger.error(f"处理文档 {file_name} 失败: {e}")
+    except Exception as e:
+        logger.error(f"获取文件夹列表失败: {e}")
     logger.info(f"==== 定时巡检任务完成 ====")
 
 
@@ -70,10 +78,17 @@ def handle_im_message(data: P2ImMessageReceiveV1) -> None:
     # Very simple parsing logic for demo:
     if "feishu.cn" in content or "文档" in content:
         logger.info("[WebSocket] 检测到文档链接/命令，触发解析与抽取...")
-        # doc_token = parse_token_from_url(content)
-        # process_doc_todos(doc_token)
+        doc_token = parse_token_from_url(content)
+        process_doc_todos(doc_token)
     return None
 
+def parse_token_from_url(content: str) -> str:
+    """从输入内容或飞书链接中解析出文档 token。"""
+    match = re.search(r'/(?:doc|docx|wiki)/([a-zA-Z0-9]+)', content)
+    if match:
+        return match.group(1)
+    # 如果未匹配到 URL 格式，假设传入的就是 token 文本
+    return content.strip()
 
 def refresh_access_token_job() -> None:
     """Refresh tenant access token on a fixed schedule."""
