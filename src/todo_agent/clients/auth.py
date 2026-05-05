@@ -36,5 +36,5 @@ def get_access_token(force_refresh: bool = False) -> str:
     _token_cache["token"] = token
     _token_cache["expires_at"] = now + max(expire_seconds - 60, 0)
 
-    print(f"✅ token 获取成功，有效期 {expire_seconds}s")
+    print(f"✅ token {token} 获取成功，有效期 {expire_seconds}s")
     return token
