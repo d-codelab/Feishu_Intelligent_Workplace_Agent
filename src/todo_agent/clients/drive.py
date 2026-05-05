@@ -1,18 +1,31 @@
-import requests
 from typing import Any
-from todo_agent.clients.auth import get_access_token
+
+import lark_oapi as lark
+from lark_oapi.api.drive.v1 import ListFileRequest
+
 from todo_agent.config import config
 
+
 def list_files_in_folder(folder_token: str) -> list[dict[str, Any]]:
-    """List files in a drive folder."""
-    url = f"https://open.feishu.cn/open-apis/drive/v1/files"
-    params = {"folder_token": folder_token}
-    headers = {"Authorization": f"Bearer {get_access_token()}"}
+    """List files in a drive folder using official SDK."""
+    app_id, app_secret = config.require_app_credentials()
+    client = lark.Client.builder() \
+        .app_id(app_id) \
+        .app_secret(app_secret) \
+        .log_level(lark.LogLevel.DEBUG) \
+        .build()
 
-    resp = requests.get(url, params=params, headers=headers, timeout=config.request_timeout)
-    resp.raise_for_status()
-    data = resp.json()
-    if data.get("code") != 0:
-        raise RuntimeError(f"获取文件夹下文件失败: {data}")
+    request: ListFileRequest = ListFileRequest.builder() \
+        .folder_token(folder_token) \
+        .order_by("EditedTime") \
+        .direction("DESC") \
+        .build()
 
-    return data.get("data", {}).get("files", [])
+    response = client.drive.v1.file.list(request)
+
+    if not response.success():
+        raise RuntimeError(
+            f"client.drive.v1.file.list failed, code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}, resp: {response.raw.content}"
+        )
+
+    return [{"token": f.token, "name": f.name, "type": f.type} for f in response.data.files]

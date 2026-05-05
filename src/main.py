@@ -18,6 +18,7 @@ from lark_oapi.api.im.v1 import (
 
 from todo_agent.clients.auth import get_access_token
 from todo_agent.clients.drive import list_files_in_folder
+from todo_agent.clients.im import list_chats
 from todo_agent.config import config
 from todo_agent.services.pipeline import run_pipeline
 
@@ -48,7 +49,12 @@ def process_doc_todos(doc_token: str):
           "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
         }
       ]
-    run_pipeline(todos)
+    # run_pipeline(todos)
+
+def process_chat_todos(chat_id: str):
+    """Placeholder: Call the LLM extraction logic for chats and trigger pipeline."""
+    logger.info(f"[*] 触发群聊抽取链路: chat_id={chat_id}")
+    # 这里可以添加提取群聊记录并喂给LLM的逻辑
 
 
 def handle_scheduled_scan():
@@ -70,6 +76,24 @@ def handle_scheduled_scan():
     logger.info(f"==== 定时巡检任务完成 ====")
 
 
+def handle_chat_scan():
+    """Triggered by APScheduler every day at 18:00"""
+    logger.info(f"==== 开始执行群聊定时巡检任务 ====")
+    try:
+        chats = list_chats()
+        for c in chats:
+            chat_id = c.get("chat_id")
+            chat_name = c.get("name")
+            logger.info(f"-> 扫描群聊: {chat_name} ({chat_id})")
+            try:
+                process_chat_todos(chat_id)
+            except Exception as e:
+                logger.error(f"处理群聊 {chat_name} 失败: {e}")
+    except Exception as e:
+        logger.error(f"获取群聊列表失败: {e}")
+    logger.info(f"==== 群聊定时巡检任务完成 ====")
+
+
 def handle_im_message(data: P2ImMessageReceiveV1) -> None:
     """Handle receiving messages (manual trigger) via WebSocket."""
     msg = data.event.message
@@ -86,6 +110,7 @@ def parse_token_from_url(content: str) -> str:
     """从输入内容或飞书链接中解析出文档 token。"""
     match = re.search(r'/(?:doc|docx|wiki)/([a-zA-Z0-9]+)', content)
     if match:
+        print(f"解析到文档 token: {match.group(1)}")
         return match.group(1)
     # 如果未匹配到 URL 格式，假设传入的就是 token 文本
     return content.strip()
@@ -117,9 +142,12 @@ def main():
 
     # 2. 定时任务配置
     scheduler = BackgroundScheduler()
-    # 设定每天早上 9:00 扫描一次目标文档列表，触发抽取与同步流程
+    # 设定每天早上 9:00 扫描一次共享文件夹列表，触发抽取与同步流程
     # scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
     scheduler.add_job(handle_scheduled_scan, trigger='interval', seconds=60)  # For demo, run every 60s
+    # 设定每天晚上 18:00 扫描一次群聊，触发抽取与同步流程
+    # scheduler.add_job(handle_chat_scan, trigger='cron', hour=18, minute=0)
+    scheduler.add_job(handle_chat_scan, trigger='interval', seconds=30)  # For demo, run every 30s
     scheduler.add_job(refresh_access_token_job, trigger='interval', minutes=60)
     scheduler.start()
     logger.info("已启动定时任务调度器 (每天9:00)")
