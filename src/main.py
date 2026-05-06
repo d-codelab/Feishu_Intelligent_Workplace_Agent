@@ -5,17 +5,19 @@ Support multiple dimension triggers:
 2. Scheduled Cron job trigger using APScheduler for processing target docs.
 """
 
+import concurrent.futures
 import logging
 import re
 import signal
 import sys
-import threading
+from collections import deque
 
-import requests
 import lark_oapi as lark
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from lark_oapi.api.im.v1 import (
     P2ImMessageReceiveV1,
+    P2ImMessageReactionCreatedV1,
 )
 from lark_oapi.api.vc.v1 import P2VcMeetingMeetingEndedV1
 
@@ -28,6 +30,11 @@ from todo_agent.services.pipeline import run_pipeline
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# 记录已处理过的会议ID，防止飞书事件重复推送导致重复调用大模型抽取。限制大小避免长期运行后内存泄漏
+processed_meeting_ids = deque(maxlen=1000)
+
+# 全局线程池，避免高并发时无节制创建销毁线程
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 def process_doc_todos(doc_token: str):
     """Placeholder: Call the LLM extraction logic and trigger pipeline."""
@@ -57,14 +64,12 @@ def handle_scheduled_scan():
         for f in files:
             file_token = f.get("token")
             file_name = f.get("name")
-            logger.info(f"-> 扫描文档: {file_name} ({file_token})")
-            try:
-                process_doc_todos(file_token)
-            except Exception as e:
-                logger.error(f"处理文档 {file_name} 失败: {e}")
+            logger.info(f"-> 提交扫描文档任务: {file_name} ({file_token})")
+            # 丢到线程池后台处理，不阻塞定时任务主线程
+            executor.submit(process_doc_todos, file_token)
     except Exception as e:
-        logger.error(f"获取文件夹列表失败: {e}")
-    logger.info(f"==== 定时巡检任务完成 ====")
+        logger.error(f"获取文件夹/执行任务失败: {e}")
+    logger.info(f"==== 定时巡检任务调度完成 ====")
 
 
 def handle_chat_scan():
@@ -75,14 +80,12 @@ def handle_chat_scan():
         for c in chats:
             chat_id = c.get("chat_id")
             chat_name = c.get("name")
-            logger.info(f"-> 扫描群聊: {chat_name} ({chat_id})")
-            try:
-                process_chat_todos(chat_id)
-            except Exception as e:
-                logger.error(f"处理群聊 {chat_name} 失败: {e}")
+            logger.info(f"-> 提交扫描群聊任务: {chat_name} ({chat_id})")
+            # 丢到线程池处理，防止阻塞
+            executor.submit(process_chat_todos, chat_id)
     except Exception as e:
-        logger.error(f"获取群聊列表失败: {e}")
-    logger.info(f"==== 群聊定时巡检任务完成 ====")
+        logger.error(f"获取群聊列表/执行任务失败: {e}")
+    logger.info(f"==== 群聊定时巡检任务调度完成 ====")
 
 
 def _async_handle_im_message(data: P2ImMessageReceiveV1) -> None:
@@ -98,8 +101,12 @@ def _async_handle_im_message(data: P2ImMessageReceiveV1) -> None:
 
 def handle_im_message(data: P2ImMessageReceiveV1) -> None:
     """Handle receiving messages (manual trigger) via WebSocket."""
-    # 将整个处理逻辑放入内部异步线程，确保最快速度（毫秒级）返回，彻底杜绝飞书 3s 超时重试问题
-    threading.Thread(target=_async_handle_im_message, args=(data,)).start()
+    # 将整个处理逻辑放入全局线程池，确保最快速度返回，并且限制了最大线程数量防止激增
+    executor.submit(_async_handle_im_message, data)
+    return None
+
+def handle_message_reaction_created(data: P2ImMessageReactionCreatedV1) -> None:
+    """Ignore message reaction events to prevent processor not found errors."""
     return None
 
 def _async_handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
@@ -108,6 +115,16 @@ def _async_handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
         meeting = data.event.meeting
         # 根据飞书 SDK 数据结构提取 meeting_id
         meeting_id = getattr(meeting, "id", None)
+
+        if not meeting_id:
+            logger.warning("未获取到 meeting_id，跳过处理")
+            return
+
+        if meeting_id in processed_meeting_ids:
+            logger.info(f"[WebSocket] 收到会议结束事件, meeting_id={meeting_id}，但该会议已经处理过，跳过重复抽取。")
+            return
+
+        processed_meeting_ids.append(meeting_id)
         logger.info(f"[WebSocket] 收到会议结束事件, meeting_id={meeting_id}")
 
         # 调用纪要接口拿到document_token
@@ -134,7 +151,7 @@ def _async_handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
 
 def handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
     """Handle receiving meeting ended event via WebSocket."""
-    threading.Thread(target=_async_handle_meeting_ended, args=(data,)).start()
+    executor.submit(_async_handle_meeting_ended, data)
     return None
 
 def parse_token_from_url(content: str) -> str:
@@ -162,6 +179,7 @@ def main():
     # Handles manual messaging and event subscriptions
     event_handler = lark.EventDispatcherHandler.builder("", "") \
         .register_p2_im_message_receive_v1(handle_im_message) \
+        .register_p2_im_message_reaction_created_v1(handle_message_reaction_created) \
         .register_p2_vc_meeting_meeting_ended_v1(handle_meeting_ended) \
         .build()
 
@@ -194,6 +212,7 @@ def main():
     def signal_handler(sig, frame):
         logger.info("收到中止信号，正在关闭服务...")
         scheduler.shutdown()
+        executor.shutdown(wait=False)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
