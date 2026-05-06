@@ -9,12 +9,15 @@ import logging
 import re
 import signal
 import sys
+import threading
 
+import requests
 import lark_oapi as lark
 from apscheduler.schedulers.background import BackgroundScheduler
 from lark_oapi.api.im.v1 import (
     P2ImMessageReceiveV1,
 )
+from lark_oapi.api.vc.v1 import P2VcMeetingMeetingEndedV1
 
 from todo_agent.clients.auth import get_access_token
 from todo_agent.clients.drive import list_files_in_folder
@@ -34,9 +37,17 @@ def process_doc_todos(doc_token: str):
         from todo_extractor.extractors.feishu_doc import FeishuDocExtractor
         from todo_extractor.pipeline import extract_pipeline
 
+<<<<<<< HEAD
         # Create extractor and run extraction
         extractor = FeishuDocExtractor(mode="batch")
         result = extract_pipeline(extractor, doc_token=doc_token)
+=======
+    # 获取抽取结果后，这里负责写入和同步链路
+    logger.info("[*] (Mock) 根据抽取结果执行写入同步")
+    # For now, optionally just log or run a mocked version:
+    todos = []
+    run_pipeline(todos)
+>>>>>>> origin/todo-workflow
 
         if result["success"] and result["todos"]:
             logger.info(f"文档抽取成功: {result['count']} 条事项")
@@ -111,8 +122,13 @@ def handle_chat_scan():
     logger.info(f"==== 群聊定时巡检任务完成 ====")
 
 
+<<<<<<< HEAD
 def handle_im_message(data) -> None:  # P2ImMessageReceiveV1
     """Handle receiving messages (manual trigger) via WebSocket."""
+=======
+def _async_handle_im_message(data: P2ImMessageReceiveV1) -> None:
+    """Async worker for processing IM messages."""
+>>>>>>> origin/todo-workflow
     msg = data.event.message
     content = msg.content
     logger.info(f"[WebSocket] 收到用户消息: {content}")
@@ -121,6 +137,46 @@ def handle_im_message(data) -> None:  # P2ImMessageReceiveV1
         logger.info("[WebSocket] 检测到文档链接/命令，触发解析与抽取...")
         doc_token = parse_token_from_url(content)
         process_doc_todos(doc_token)
+
+def handle_im_message(data: P2ImMessageReceiveV1) -> None:
+    """Handle receiving messages (manual trigger) via WebSocket."""
+    # 将整个处理逻辑放入内部异步线程，确保最快速度（毫秒级）返回，彻底杜绝飞书 3s 超时重试问题
+    threading.Thread(target=_async_handle_im_message, args=(data,)).start()
+    return None
+
+def _async_handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
+    """Async worker for processing meeting ended events."""
+    try:
+        meeting = data.event.meeting
+        # 根据飞书 SDK 数据结构提取 meeting_id
+        meeting_id = getattr(meeting, "id", None)
+        logger.info(f"[WebSocket] 收到会议结束事件, meeting_id={meeting_id}")
+
+        # 调用纪要接口拿到document_token
+        access_token = get_access_token()
+        url = f"https://open.feishu.cn/open-apis/vc/v1/meetings/{meeting_id}"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        resp = requests.get(url, headers=headers)
+
+        doc_token = None
+        if resp.status_code == 200:
+            resp_data = resp.json().get("data", {}).get("meeting", {})
+            related_artifacts = resp_data.get("related_artifacts", {})
+            doc_token = related_artifacts.get("note_doc_token")
+
+        if not doc_token:
+            # fallback 到已知可用的mock文档进行测试
+            doc_token = config.doc_token
+            logger.info("未获取到实际 doc_token，使用 mock document_token 进行演示")
+
+        logger.info(f"[WebSocket] 获取到纪要文档 document_token={doc_token}，触发解析与抽取...")
+        process_doc_todos(doc_token)
+    except Exception as e:
+        logger.error(f"处理 meeting_ended 事件失败: {e}")
+
+def handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
+    """Handle receiving meeting ended event via WebSocket."""
+    threading.Thread(target=_async_handle_meeting_ended, args=(data,)).start()
     return None
 
 def parse_token_from_url(content: str) -> str:
@@ -148,6 +204,7 @@ def main():
     # Handles manual messaging and event subscriptions
     event_handler = lark.EventDispatcherHandler.builder("", "") \
         .register_p2_im_message_receive_v1(handle_im_message) \
+        .register_p2_vc_meeting_meeting_ended_v1(handle_meeting_ended) \
         .build()
 
     cli = lark.ws.Client(
@@ -163,9 +220,10 @@ def main():
     # scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
     scheduler.add_job(handle_scheduled_scan, trigger='interval', seconds=60)  # For demo, run every 60s
 
-    # 设定每天晚上 18:00 扫描一次群聊，触发抽取与同步流程
+    # 设定每天中午 12:00 和晚上 18:00 扫描一次群聊，触发抽取与同步流程
+    # scheduler.add_job(handle_chat_scan, trigger='cron', hour=12, minute=0)
     # scheduler.add_job(handle_chat_scan, trigger='cron', hour=18, minute=0)
-    # scheduler.add_job(handle_chat_scan, trigger='interval', seconds=30)  # For demo, run every 30s
+    scheduler.add_job(handle_chat_scan, trigger='interval', seconds=120)  # For demo, run every 30s
 
     # 定时刷新 token，确保长连接稳定
     scheduler.add_job(refresh_access_token_job, trigger='interval', minutes=60)
