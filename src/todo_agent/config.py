@@ -5,6 +5,7 @@ need to know how configuration is loaded.
 """
 
 import os
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,6 +18,7 @@ print(f"Project root directory: {PROJECT_ROOT}")  # Debug log to verify path res
 MOCK_DATA_DIR = PROJECT_ROOT / "mock_data"
 DEFAULT_MOCK_TODOS_PATH = MOCK_DATA_DIR / "data.json"
 FALLBACK_MOCK_TODOS_PATH = MOCK_DATA_DIR / "todo_result_feishu_doc.json"
+TARGET_DOCS_PATH = MOCK_DATA_DIR / "target_docs.json"
 
 
 @dataclass(frozen=True)
@@ -29,25 +31,19 @@ class FeishuConfig:
     bitable_table_id: str | None = os.getenv("FEISHU_BITABLE_TABLE_ID")
     user_access_token: str | None = os.getenv("FEISHU_USER_ACCESS_TOKEN")
     feishu_chat_id: str | None = os.getenv("FEISHU_CHAT_ID")
-    summary_mobile: str = os.getenv("FEISHU_TEST_MOBILE", "13349952475")
     request_timeout: int = int(os.getenv("FEISHU_REQUEST_TIMEOUT", "10"))
-
+    doc_token: str | None = os.getenv("FEISHU_DOC_TOKEN")
     target_docs: list[dict[str, str]] = None
 
     def __post_init__(self):
-        # Demo phase target docs for scheduled tasks
-        object.__setattr__(self, 'target_docs', [
-            {
-                "type": "docx",
-                "title": "618大促主会场｜项目方案 v1",
-                "token": "Rn0qdlPEBoln6uxukGvcHw6Bntd"
-            },
-            {
-                "type": "docx",
-                "title": "智能纪要：讨论 2026年4月26日",
-                "token": "SoR6dLwIeowFSWxRHrBcSh2Un8c"
-            }
-        ])
+        # Load target docs for scheduled tasks from json file
+        try:
+            with open(TARGET_DOCS_PATH, 'r', encoding='utf-8') as f:
+                docs = json.load(f)
+                object.__setattr__(self, 'target_docs', docs)
+        except Exception as e:
+            print(f"Warning: Failed to load target docs from {TARGET_DOCS_PATH}: {e}")
+            object.__setattr__(self, 'target_docs', [])
 
     def require_app_credentials(self) -> tuple[str, str]:
         """Return app credentials or raise when missing."""
