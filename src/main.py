@@ -118,8 +118,9 @@ def _async_handle_meeting_ended(data: P2VcMeetingMeetingEndedV1) -> None:
 
         doc_token = None
         if resp.status_code == 200:
-            # 假设返回体包含 minute_token/document_token
-            doc_token = resp.json().get("data", {}).get("minute_token")
+            resp_data = resp.json().get("data", {}).get("meeting", {})
+            related_artifacts = resp_data.get("related_artifacts", {})
+            doc_token = related_artifacts.get("note_doc_token")
 
         if not doc_token:
             # fallback 到已知可用的mock文档进行测试
