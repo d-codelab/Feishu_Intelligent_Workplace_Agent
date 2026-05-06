@@ -107,9 +107,9 @@ def extract_todos_by_llm(text: str, source_type: str = "会议纪要") -> list[d
         # For now, we keep all items but log a warning for low confidence ones
         low_confidence_count = sum(1 for item in items if item["置信度"] < 0.5)
         if low_confidence_count > 0:
-            print(f"⚠️  发现 {low_confidence_count} 条低置信度事项（< 0.5），建议人工确认")
+            print(f"  发现 {low_confidence_count} 条低置信度事项（< 0.5），建议人工确认")
 
-        print(f"✅ LLM 抽取成功：{len(items)} 条事项")
+        print(f" LLM 抽取成功：{len(items)} 条事项")
         return items
 
     except json.JSONDecodeError as e:

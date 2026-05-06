@@ -102,7 +102,7 @@ def deduplicate_todos(
 
     removed_count = len(todos) - len(result)
     if removed_count > 0:
-        print(f"✅ 去重完成：移除 {removed_count} 条重复事项，保留 {len(result)} 条")
+        print(f" 去重完成：移除 {removed_count} 条重复事项，保留 {len(result)} 条")
 
     return result
 

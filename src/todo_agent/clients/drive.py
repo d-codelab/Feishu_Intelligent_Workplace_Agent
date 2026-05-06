@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 import lark_oapi as lark
@@ -29,3 +31,5 @@ def list_files_in_folder(folder_token: str) -> list[dict[str, Any]]:
         )
 
     return [{"token": f.token, "name": f.name, "type": f.type} for f in response.data.files]
+
+

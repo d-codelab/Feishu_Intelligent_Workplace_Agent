@@ -4,6 +4,8 @@ All environment-variable access is centralized here so service modules do not
 need to know how configuration is loaded.
 """
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from pathlib import Path

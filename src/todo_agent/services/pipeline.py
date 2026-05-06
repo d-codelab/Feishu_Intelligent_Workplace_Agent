@@ -1,4 +1,5 @@
 """End-to-end todo pipeline: load -> write Bitable -> send summary."""
+from __future__ import annotations
 
 from typing import Any
 

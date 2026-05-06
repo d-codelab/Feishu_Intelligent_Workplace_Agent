@@ -1,5 +1,7 @@
 """Build and send Feishu todo summary cards."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from todo_agent.clients.im import get_user_open_id_by_mobile, send_interactive_card

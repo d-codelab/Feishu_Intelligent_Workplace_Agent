@@ -27,43 +27,60 @@ logger = logging.getLogger(__name__)
 
 
 def process_doc_todos(doc_token: str):
-    """Placeholder: Call the LLM extraction logic and trigger pipeline."""
-    logger.info(f"[*] 触发抽取链路: doc_token={doc_token}")
+    """Extract todos from document and trigger pipeline."""
+    logger.info(f"[*] 触发文档抽取链路: doc_token={doc_token}")
 
-    # 队友负责抽取功能
-    # ... extract Logic ...
+    try:
+        from todo_extractor.extractors.feishu_doc import FeishuDocExtractor
+        from todo_extractor.pipeline import extract_pipeline
 
-    # 获取抽取结果后，这里负责写入和同步链路
-    logger.info("[*] (Mock) 根据抽取结果执行写入同步")
-    # For now, optionally just log or run a mocked version:
-    todos = [
-        {
-          "title": "测试演示闭环",
-          "description": "两天内测试最小可演示闭环，完成技术可行性验证，确认核心链路可测试",
-          "owner_open_id": "ou_5861fdd8ba230b2a2ae9254b4e52df2a",
-          "deadline": "1777647368627",
-          "status": "待开始",
-          "priority": "",
-          "source_type": "飞书任务",
-          "evidence": "两天内测试一个最小可演示闭环：模拟办公数据 → OpenClaw/CLI 抽取事项 → 输出结构化 JSON → API 写入飞书多维表格 → 机器人发送整理结果",
-          "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
-        }
-      ]
-    run_pipeline(todos)
+        # Create extractor and run extraction
+        extractor = FeishuDocExtractor(mode="batch")
+        result = extract_pipeline(extractor, doc_token=doc_token)
 
-def process_chat_todos(chat_id: str):
-    """Placeholder: Call the LLM extraction logic for chats and trigger pipeline."""
-    logger.info(f"[*] 触发群聊抽取链路: chat_id={chat_id}")
-    # 这里可以添加提取群聊记录并喂给LLM的逻辑
+        if result["success"] and result["todos"]:
+            logger.info(f"文档抽取成功: {result['count']} 条事项")
+            # Trigger write and sync pipeline
+            run_pipeline(result["todos"])
+        else:
+            logger.warning(f"文档抽取未获取到事项: {result.get('error', '无错误信息')}")
+
+    except Exception as e:
+        logger.error(f"文档抽取失败: {e}", exc_info=True)
+
+def process_chat_todos(chat_id: str, hours: int = 24):
+    """Extract todos from chat history and trigger pipeline."""
+    logger.info(f"[*] 触发群聊抽取链路: chat_id={chat_id}, hours={hours}")
+
+    try:
+        from todo_extractor.extractors.feishu_im import FeishuIMExtractor
+        from todo_extractor.pipeline import extract_pipeline
+
+        # Create extractor and run extraction
+        extractor = FeishuIMExtractor(mode="batch")
+        result = extract_pipeline(extractor, chat_id=chat_id, hours=hours)
+
+        if result["success"] and result["todos"]:
+            logger.info(f"[*] 群聊抽取成功: {result['count']} 条事项")
+            # Trigger write and sync pipeline
+            run_pipeline(result["todos"])
+        else:
+            logger.warning(f"[*] 群聊抽取未获取到事项: {result.get('error', '无错误信息')}")
+
+    except Exception as e:
+        logger.error(f"[*] 群聊抽取失败: {e}", exc_info=True)
 
 
 def handle_scheduled_scan():
     """Triggered by APScheduler every morning at 9:00"""
-    logger.info(f"==== 开始执行定时巡检任务 ====")
+    logger.info(f"==== 开始执行云文档定时巡检任务 ====")
     folder_token = "IHTzf0VO4lILOYd75z3cV09AnKe"
     try:
         files = list_files_in_folder(folder_token)
         for f in files:
+            if f.get("type") not in ("DOCX", "docx"):
+                print(f"  跳过非文档类型: {f.get('doc_type')}")
+                continue
             file_token = f.get("token")
             file_name = f.get("name")
             logger.info(f"-> 扫描文档: {file_name} ({file_token})")
@@ -94,7 +111,7 @@ def handle_chat_scan():
     logger.info(f"==== 群聊定时巡检任务完成 ====")
 
 
-def handle_im_message(data: P2ImMessageReceiveV1) -> None:
+def handle_im_message(data) -> None:  # P2ImMessageReceiveV1
     """Handle receiving messages (manual trigger) via WebSocket."""
     msg = data.event.message
     content = msg.content
@@ -119,9 +136,9 @@ def refresh_access_token_job() -> None:
     """Refresh tenant access token on a fixed schedule."""
     try:
         get_access_token(force_refresh=True)
-        logger.info("✅ 已定时刷新 tenant access token")
+        logger.info("已定时刷新 tenant access token")
     except Exception as e:
-        logger.error(f"❌ 定时刷新 token 失败: {e}")
+        logger.error(f"定时刷新 token 失败: {e}")
 
 
 def main():
@@ -175,3 +192,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    print("test！")
+
+    # handle_chat_scan()
+    # handle_scheduled_scan()

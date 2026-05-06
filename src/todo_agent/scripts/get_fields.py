@@ -1,5 +1,7 @@
 """Script for printing configured Bitable field metadata."""
 
+from __future__ import annotations
+
 import json
 import os
 from typing import Any

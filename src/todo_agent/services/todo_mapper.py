@@ -1,5 +1,7 @@
 """Todo-to-Bitable field mapping and validation rules."""
 
+from __future__ import annotations
+
 import json
 import hashlib
 from datetime import datetime

@@ -6,8 +6,8 @@ from typing import Any
 import requests
 
 # ========== 配置信息 ==========
-FEISHU_APP_ID = "cli_a97ac4e3d9781cc2"
-FEISHU_APP_SECRET = "ku3CAepCsq3bZRqPrMSjmvTZdO7y4qrU"
+FEISHU_APP_ID = "cli_a973eb3d38b81cca"
+FEISHU_APP_SECRET = "X8tBNt9clhrJZBxtcPsDmgjOpuXAGeKc"
 REQUEST_TIMEOUT = 10
 # ==============================
 
@@ -48,5 +48,5 @@ def get_access_token(force_refresh: bool = False) -> str:
     _token_cache["token"] = token
     _token_cache["expires_at"] = now + max(expire_seconds - 60, 0)
 
-    print(f"✅ Token 获取成功，有效期 {expire_seconds}s")
+    print(f"Token 获取成功，有效期 {expire_seconds}s")
     return token

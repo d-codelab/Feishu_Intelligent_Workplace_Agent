@@ -1,5 +1,7 @@
 """Script for listing Feishu chats visible to a user token."""
 
+from __future__ import annotations
+
 import json
 from typing import Any
 

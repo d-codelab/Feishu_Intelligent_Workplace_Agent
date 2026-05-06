@@ -1,5 +1,7 @@
 """Low-level Feishu IM and contact API helpers."""
 
+from __future__ import annotations
+
 import json
 import requests
 from typing import Any

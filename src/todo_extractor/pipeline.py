@@ -40,7 +40,7 @@ def extract_pipeline(extractor: BaseExtractor, **kwargs) -> dict[str, Any]:
         validation_issues = validate_todos(todos)
 
         if validation_issues:
-            print("⚠️  发现验证问题：")
+            print("  发现验证问题：")
             for issue in validation_issues:
                 print(f"  - {issue}")
 

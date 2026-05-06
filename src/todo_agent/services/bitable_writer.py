@@ -1,4 +1,5 @@
 """Service for writing todo records into Feishu Bitable."""
+from __future__ import annotations
 
 from typing import Any
 
