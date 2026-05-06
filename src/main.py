@@ -37,17 +37,9 @@ def process_doc_todos(doc_token: str):
         from todo_extractor.extractors.feishu_doc import FeishuDocExtractor
         from todo_extractor.pipeline import extract_pipeline
 
-<<<<<<< HEAD
         # Create extractor and run extraction
         extractor = FeishuDocExtractor(mode="batch")
         result = extract_pipeline(extractor, doc_token=doc_token)
-=======
-    # 获取抽取结果后，这里负责写入和同步链路
-    logger.info("[*] (Mock) 根据抽取结果执行写入同步")
-    # For now, optionally just log or run a mocked version:
-    todos = []
-    run_pipeline(todos)
->>>>>>> origin/todo-workflow
 
         if result["success"] and result["todos"]:
             logger.info(f"文档抽取成功: {result['count']} 条事项")
@@ -122,13 +114,8 @@ def handle_chat_scan():
     logger.info(f"==== 群聊定时巡检任务完成 ====")
 
 
-<<<<<<< HEAD
-def handle_im_message(data) -> None:  # P2ImMessageReceiveV1
-    """Handle receiving messages (manual trigger) via WebSocket."""
-=======
 def _async_handle_im_message(data: P2ImMessageReceiveV1) -> None:
     """Async worker for processing IM messages."""
->>>>>>> origin/todo-workflow
     msg = data.event.message
     content = msg.content
     logger.info(f"[WebSocket] 收到用户消息: {content}")
