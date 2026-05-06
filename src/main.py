@@ -9,6 +9,7 @@ import logging
 import re
 import signal
 import sys
+import threading
 
 import lark_oapi as lark
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -82,8 +83,8 @@ def handle_chat_scan():
     logger.info(f"==== 群聊定时巡检任务完成 ====")
 
 
-def handle_im_message(data: P2ImMessageReceiveV1) -> None:
-    """Handle receiving messages (manual trigger) via WebSocket."""
+def _async_handle_im_message(data: P2ImMessageReceiveV1) -> None:
+    """Async worker for processing IM messages."""
     msg = data.event.message
     content = msg.content
     logger.info(f"[WebSocket] 收到用户消息: {content}")
@@ -92,6 +93,11 @@ def handle_im_message(data: P2ImMessageReceiveV1) -> None:
         logger.info("[WebSocket] 检测到文档链接/命令，触发解析与抽取...")
         doc_token = parse_token_from_url(content)
         process_doc_todos(doc_token)
+
+def handle_im_message(data: P2ImMessageReceiveV1) -> None:
+    """Handle receiving messages (manual trigger) via WebSocket."""
+    # 将整个处理逻辑放入内部异步线程，确保最快速度（毫秒级）返回，彻底杜绝飞书 3s 超时重试问题
+    threading.Thread(target=_async_handle_im_message, args=(data,)).start()
     return None
 
 def parse_token_from_url(content: str) -> str:
