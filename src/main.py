@@ -36,19 +36,7 @@ def process_doc_todos(doc_token: str):
     # 获取抽取结果后，这里负责写入和同步链路
     logger.info("[*] (Mock) 根据抽取结果执行写入同步")
     # For now, optionally just log or run a mocked version:
-    todos = [
-        {
-          "title": "测试演示闭环",
-          "description": "两天内测试最小可演示闭环，完成技术可行性验证，确认核心链路可测试",
-          "owner_open_id": "ou_5861fdd8ba230b2a2ae9254b4e52df2a",
-          "deadline": "1777647368627",
-          "status": "待开始",
-          "priority": "",
-          "source_type": "飞书任务",
-          "evidence": "两天内测试一个最小可演示闭环：模拟办公数据 → OpenClaw/CLI 抽取事项 → 输出结构化 JSON → API 写入飞书多维表格 → 机器人发送整理结果",
-          "source_link": "https://xxx.feishu.cn/doc/FVsKw2E0xiEOGwkTezhcvyHEnNc"
-        }
-      ]
+    todos = []
     run_pipeline(todos)
 
 def process_chat_todos(chat_id: str):
@@ -146,9 +134,10 @@ def main():
     # scheduler.add_job(handle_scheduled_scan, trigger='cron', hour=9, minute=0)
     scheduler.add_job(handle_scheduled_scan, trigger='interval', seconds=60)  # For demo, run every 60s
 
-    # 设定每天晚上 18:00 扫描一次群聊，触发抽取与同步流程
+    # 设定每天中午 12:00 和晚上 18:00 扫描一次群聊，触发抽取与同步流程
+    # scheduler.add_job(handle_chat_scan, trigger='cron', hour=12, minute=0)
     # scheduler.add_job(handle_chat_scan, trigger='cron', hour=18, minute=0)
-    # scheduler.add_job(handle_chat_scan, trigger='interval', seconds=30)  # For demo, run every 30s
+    scheduler.add_job(handle_chat_scan, trigger='interval', seconds=120)  # For demo, run every 30s
 
     # 定时刷新 token，确保长连接稳定
     scheduler.add_job(refresh_access_token_job, trigger='interval', minutes=60)

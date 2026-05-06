@@ -1,6 +1,7 @@
 """Build and send Feishu todo summary cards."""
 
 from typing import Any
+from datetime import datetime
 
 from todo_agent.clients.im import get_user_open_id_by_mobile, send_interactive_card
 from todo_agent.config import config
@@ -17,7 +18,7 @@ def build_bitable_link_text() -> str:
     """Build Feishu markdown link text for the Bitable table."""
     url = get_bitable_url()
     if url:
-        return f"[团队重点事项推进总表]({url})"
+        return f"[618大促会场]({url})"
     return "团队重点事项推进总表"
 
 
@@ -50,7 +51,7 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
         "config": {"wide_screen_mode": True},
         "header": {
             "template": "blue",
-            "title": {"tag": "plain_text", "content": "新增事项总结"},
+            "title": {"tag": "plain_text", "content": "事项总结"},
         },
         "elements": [
             {
@@ -62,6 +63,49 @@ def build_summary_card(todos: list[dict[str, Any]]) -> dict[str, Any]:
             }
         ],
     }
+
+
+def send_risk_alert(todo: dict[str, Any]) -> bool:
+    """Check todo status and send a risk alert template card if there is a blocker."""
+    if todo.get("status") != "有阻塞":
+        return False
+
+    if not config.feishu_chat_id:
+        print("❌ 未配置群聊 ID (FEISHU_CHAT_ID)，无法发送风险卡片")
+        return False
+
+    source_link_val = todo.get("source_link", "")
+
+    deadline_val = todo.get("deadline", "")
+    deadline_str = deadline_val
+    if deadline_val:
+        try:
+            ts = int(deadline_val) / 1000.0
+            deadline_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+        except (ValueError, TypeError):
+            pass
+
+    card = {
+        "type": "template",
+        "data": {
+            "template_id": "AAqelLBmOVhpU",
+            "template_variable": {
+                "title": todo.get("title", ""),
+                "description": todo.get("description", ""),
+                "owner": [{"id": todo.get("owner_open_id")}] if todo.get("owner_open_id") else [],
+                "status": "有阻塞",
+                # 将时间戳转为YYYY-MM-DD格式
+                "deadline": deadline_str,
+                "source_link": {"url": source_link_val, "pc_url": source_link_val, "ios_url": source_link_val, "android_url": source_link_val}
+            }
+        }
+    }
+
+    return send_interactive_card(
+        card,
+        receive_id=config.feishu_chat_id,
+        receive_id_type="chat_id"
+    )
 
 
 def send_summary(todos: list[dict[str, Any]], mobile: str | None = None) -> bool:
