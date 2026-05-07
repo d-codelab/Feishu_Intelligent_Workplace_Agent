@@ -118,12 +118,12 @@ def build_need_confirm(todo: dict[str, Any]) -> list[str]:
 def todo_to_fields(todo: dict[str, Any]) -> dict[str, Any]:
     """Convert one normalized todo dict into Feishu Bitable field payload."""
     fields: dict[str, Any] = {
-        FIELD_NAMES["title"]: todo.get("title", "（无标题）"),
-        FIELD_NAMES["description"]: todo.get("description", ""),
-        FIELD_NAMES["status"]: todo.get("status", "待确认"),
-        FIELD_NAMES["priority"]: todo.get("priority", "P2"),
-        FIELD_NAMES["source_type"]: todo.get("source_type", ""),
-        FIELD_NAMES["evidence"]: todo.get("evidence", ""),
+        FIELD_NAMES["title"]: todo.get("事项标题", "（无标题）"),
+        FIELD_NAMES["description"]: todo.get("事项描述", ""),
+        FIELD_NAMES["status"]: todo.get("当前状态", "待确认"),
+        FIELD_NAMES["priority"]: todo.get("优先级", "P2"),
+        FIELD_NAMES["source_type"]: todo.get("原文依据", ""),
+        FIELD_NAMES["evidence"]: todo.get("置信度", ""),
     }
 
     source_link = todo.get("source_link")

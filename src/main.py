@@ -256,7 +256,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print("test！")
-
-    # handle_chat_scan()
-    # handle_scheduled_scan()

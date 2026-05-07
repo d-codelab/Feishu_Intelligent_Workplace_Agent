@@ -4,8 +4,6 @@ import requests
 from datetime import datetime, timedelta
 
 # ========== 配置信息 ==========
-APP_ID = "cli_a964a649df78dceb"
-APP_SECRET = "y83yTWnKjYv0JnHkD5XarhQAW4B7oJJO"
 REQUEST_TIMEOUT = 10
 BASE_URL = "https://open.feishu.cn/open-apis"
 # ==============================

@@ -3,7 +3,6 @@
 import requests
 
 # ========== 配置信息 ==========
-USER_TOKEN = "u-dsDwouGNF5NofiY8TjtAIl10lyjghlghW0GaZwU024o6"
 REQUEST_TIMEOUT = 10
 # ==============================
 

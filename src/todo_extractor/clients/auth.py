@@ -6,8 +6,6 @@ from typing import Any
 import requests
 
 # ========== 配置信息 ==========
-FEISHU_APP_ID = "cli_a973eb3d38b81cca"
-FEISHU_APP_SECRET = "X8tBNt9clhrJZBxtcPsDmgjOpuXAGeKc"
 REQUEST_TIMEOUT = 10
 # ==============================
 

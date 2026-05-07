@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import List, Dict
 
 # ========== 配置信息 ==========
-USER_TOKEN = "u-cBQu3Q3hV9JrwTehhsg5t.l45leghlqjWOGa2Ag005RI"
 REQUEST_TIMEOUT = 10
 # ==============================
 
