@@ -111,7 +111,8 @@ def handle_chat_scan():
             chat_name = c.get("name")
             logger.info(f"-> 提交扫描群聊任务: {chat_name} ({chat_id})")
             # 丢到线程池处理，防止阻塞
-            executor.submit(process_chat_todos, chat_id)
+            process_chat_todos(chat_id)
+            # executor.submit(process_chat_todos, chat_id)
     except Exception as e:
         logger.error(f"获取群聊列表/执行任务失败: {e}")
     logger.info(f"==== 群聊定时巡检任务调度完成 ====")
@@ -256,3 +257,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
