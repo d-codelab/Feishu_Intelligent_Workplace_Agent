@@ -1,9 +1,15 @@
 """Feishu Calendar API helpers."""
 
+import os
 import requests
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ========== 配置信息 ==========
+APP_ID = os.getenv("FEISHU_APP_ID")
+APP_SECRET = os.getenv("FEISHU_APP_SECRET")
 REQUEST_TIMEOUT = 10
 BASE_URL = "https://open.feishu.cn/open-apis"
 # ==============================
@@ -18,6 +24,9 @@ def get_tenant_token() -> str:
     Raises:
         RuntimeError: If request fails
     """
+    if not APP_ID or not APP_SECRET:
+        raise RuntimeError("缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET 环境变量")
+
     url = f"{BASE_URL}/auth/v3/tenant_access_token/internal"
     payload = {"app_id": APP_ID, "app_secret": APP_SECRET}
 

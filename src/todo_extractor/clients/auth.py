@@ -1,11 +1,17 @@
 """Feishu Open API authentication client."""
 
+import os
 import time
 from typing import Any
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ========== 配置信息 ==========
+FEISHU_APP_ID = os.getenv("FEISHU_APP_ID")
+FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET")
 REQUEST_TIMEOUT = 10
 # ==============================
 
@@ -29,6 +35,9 @@ def get_access_token(force_refresh: bool = False) -> str:
     cached_token = _token_cache.get("token")
     if cached_token and not force_refresh and now < float(_token_cache.get("expires_at", 0)):
         return str(cached_token)
+
+    if not FEISHU_APP_ID or not FEISHU_APP_SECRET:
+        raise RuntimeError("缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET 环境变量")
 
     resp = requests.post(
         TOKEN_URL,
